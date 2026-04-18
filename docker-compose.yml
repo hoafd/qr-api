@@ -1,0 +1,7 @@
+services:
+  qr-api:
+    build: .
+    container_name: qr-server
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
