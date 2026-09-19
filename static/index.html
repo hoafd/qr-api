@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QR API Server — Trang Chủ</title>
+  <meta name="description" content="Bộ công cụ QR mạnh mẽ: quét mã QR CCCD và tạo mã QR tùy chỉnh." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0f1e;
+      --surface: #111827;
+      --surface2: #1a2235;
+      --border: rgba(255,255,255,0.08);
+      --accent1: #6366f1;
+      --accent2: #06b6d4;
+      --accent1-glow: rgba(99,102,241,0.3);
+      --accent2-glow: rgba(6,182,212,0.3);
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --radius: 20px;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      overflow-x: hidden;
+    }
+
+    /* Animated background orbs */
+    body::before, body::after {
+      content: '';
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.15;
+      pointer-events: none;
+      animation: float 8s ease-in-out infinite;
+    }
+    body::before {
+      width: 500px; height: 500px;
+      background: var(--accent1);
+      top: -150px; left: -150px;
+    }
+    body::after {
+      width: 400px; height: 400px;
+      background: var(--accent2);
+      bottom: -100px; right: -100px;
+      animation-delay: -4s;
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0) scale(1); }
+      50% { transform: translateY(-30px) scale(1.05); }
+    }
+
+    .hero {
+      text-align: center;
+      margin-bottom: 56px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(99,102,241,0.15);
+      border: 1px solid rgba(99,102,241,0.3);
+      border-radius: 100px;
+      padding: 6px 16px;
+      font-size: 13px;
+      font-weight: 500;
+      color: #a5b4fc;
+      margin-bottom: 24px;
+    }
+    .badge-dot {
+      width: 7px; height: 7px;
+      background: #6366f1;
+      border-radius: 50%;
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.8); }
+    }
+
+    h1 {
+      font-size: clamp(2rem, 6vw, 3.5rem);
+      font-weight: 800;
+      line-height: 1.1;
+      background: linear-gradient(135deg, #e2e8f0 0%, #6366f1 50%, #06b6d4 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 16px;
+    }
+
+    .subtitle {
+      font-size: 1.1rem;
+      color: var(--muted);
+      max-width: 480px;
+      margin: 0 auto;
+      line-height: 1.6;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 24px;
+      width: 100%;
+      max-width: 760px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 36px 32px;
+      text-decoration: none;
+      color: inherit;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+      cursor: pointer;
+    }
+    .card:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 24px 48px rgba(0,0,0,0.4);
+    }
+    .card.scan:hover { border-color: var(--accent1); box-shadow: 0 24px 48px var(--accent1-glow); }
+    .card.gen:hover  { border-color: var(--accent2); box-shadow: 0 24px 48px var(--accent2-glow); }
+
+    .card-icon {
+      width: 64px; height: 64px;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+    }
+    .scan .card-icon { background: rgba(99,102,241,0.15); }
+    .gen  .card-icon { background: rgba(6,182,212,0.15); }
+
+    .card-title {
+      font-size: 1.3rem;
+      font-weight: 700;
+    }
+    .card-desc {
+      font-size: 0.9rem;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .card-features {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .card-features li {
+      font-size: 0.85rem;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .feat-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .scan .feat-dot { background: #6366f1; }
+    .gen  .feat-dot { background: #06b6d4; }
+
+    .card-btn {
+      margin-top: auto;
+      padding: 12px 20px;
+      border-radius: 12px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: opacity 0.2s;
+    }
+    .card-btn:hover { opacity: 0.85; }
+    .scan .card-btn { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; }
+    .gen  .card-btn { background: linear-gradient(135deg, #06b6d4, #0284c7); color: #fff; }
+
+    .footer {
+      margin-top: 48px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.8rem;
+      position: relative;
+      z-index: 1;
+    }
+    .footer a {
+      color: #6366f1;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="hero">
+    <div class="badge">
+      <span class="badge-dot"></span>
+      Server đang hoạt động
+    </div>
+    <h1>QR API Server</h1>
+    <p class="subtitle">Bộ công cụ QR mạnh mẽ — quét mã CCCD bằng AI và tạo mã QR tùy chỉnh chuyên nghiệp.</p>
+  </div>
+
+  <div class="cards">
+
+    <a href="/scan" class="card scan">
+      <div class="card-icon">📷</div>
+      <div class="card-title">Quét Mã QR</div>
+      <div class="card-desc">Đọc mã QR từ CCCD bằng camera điện thoại hoặc upload ảnh với công cụ cắt thông minh.</div>
+      <ul class="card-features">
+        <li><span class="feat-dot"></span> Camera trực tiếp (camera trước/sau)</li>
+        <li><span class="feat-dot"></span> Upload ảnh + cắt vùng QR</li>
+        <li><span class="feat-dot"></span> AI đa tầng: WeChat → OpenCV → pyzbar</li>
+        <li><span class="feat-dot"></span> Tự động bóc tách thông tin CCCD</li>
+      </ul>
+      <div class="card-btn">Mở công cụ quét →</div>
+    </a>
+
+    <a href="/generate" class="card gen">
+      <div class="card-icon">✨</div>
+      <div class="card-title">Tạo Mã QR</div>
+      <div class="card-desc">Tạo mã QR tùy chỉnh với màu sắc, kích thước và mức độ sửa lỗi theo ý muốn.</div>
+      <ul class="card-features">
+        <li><span class="feat-dot"></span> Preview trực tiếp khi gõ</li>
+        <li><span class="feat-dot"></span> Tùy chỉnh màu sắc tự do</li>
+        <li><span class="feat-dot"></span> Tải xuống PNG chất lượng cao</li>
+        <li><span class="feat-dot"></span> Hỗ trợ URL, text, số điện thoại</li>
+      </ul>
+      <div class="card-btn">Mở công cụ tạo →</div>
+    </a>
+
+  </div>
+
+  <div class="footer">
+    <p>QR API Server v2.0 &nbsp;•&nbsp; <a href="/docs">Swagger API Docs</a> &nbsp;•&nbsp; <a href="/health">Health Check</a></p>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- API DOCUMENTATION SECTION                                          -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <div style="width:100%;max-width:900px;padding:0 24px 80px;position:relative;z-index:1;">
+
+    <div style="text-align:center;margin-bottom:48px;">
+      <div style="display:inline-flex;align-items:center;gap:8px;background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);border-radius:100px;padding:6px 18px;font-size:13px;font-weight:500;color:#67e8f9;margin-bottom:20px;">
+        📖 Tài liệu API
+      </div>
+      <h2 style="font-size:clamp(1.5rem,4vw,2.2rem);font-weight:800;background:linear-gradient(135deg,#e2e8f0,#06b6d4);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Hướng Dẫn Sử Dụng API</h2>
+      <p style="color:#94a3b8;margin-top:10px;font-size:0.95rem;">Base URL: <code style="color:#818cf8;background:#1e293b;padding:2px 8px;border-radius:6px;">http://&lt;server-ip&gt;:&lt;port&gt;</code></p>
+    </div>
+
+    <!-- Auth Section -->
+    <div style="background:#1e293b;border:1px solid rgba(245,158,11,0.3);border-radius:16px;padding:24px;margin-bottom:24px;">
+      <h3 style="color:#fcd34d;font-size:1rem;font-weight:700;margin-bottom:12px;">🔐 Xác Thực API Key (nếu được bật)</h3>
+      <p style="color:#94a3b8;font-size:0.875rem;line-height:1.7;margin-bottom:14px;">
+        Khi tính năng API Key được bật trong <strong style="color:#f1f5f9;">QR API Server Desktop App</strong>, tất cả các request đến <code style="color:#67e8f9;background:#0f172a;padding:1px 6px;border-radius:4px;">/api/*</code> phải kèm theo header hoặc query param sau:
+      </p>
+      <pre style="background:#0f172a;border:1px solid #334155;border-radius:10px;padding:14px;font-size:0.82rem;color:#67e8f9;overflow-x:auto;"><code># Header (khuyến nghị):
+X-API-Key: AbCd1234XyZw
+
+# Hoặc query param (cho GET):
+GET /api/generate-qr?data=...&amp;api_key=AbCd1234XyZw</code></pre>
+      <p style="color:#94a3b8;font-size:0.8rem;margin-top:10px;">⚠ Lấy mã API Key trong Desktop App → Phần <strong style="color:#f1f5f9;">Bảo mật API Key</strong>. Nếu sai, server trả về <code style="color:#fca5a5;">HTTP 401</code>.</p>
+    </div>
+
+    <!-- Endpoint: POST /api/scan-qr -->
+    <div style="background:#1e293b;border:1px solid rgba(99,102,241,0.25);border-radius:16px;padding:24px;margin-bottom:20px;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+        <span style="background:rgba(99,102,241,0.15);color:#818cf8;font-size:0.75rem;font-weight:700;padding:4px 10px;border-radius:6px;font-family:monospace;">POST</span>
+        <code style="color:#f1f5f9;font-size:1rem;font-weight:600;">/api/scan-qr</code>
+        <span style="color:#94a3b8;font-size:0.85rem;">— Quét mã QR từ ảnh CCCD</span>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+        <div>
+          <p style="color:#94a3b8;font-size:0.8rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">Request</p>
+          <ul style="color:#94a3b8;font-size:0.85rem;line-height:1.8;list-style:none;padding:0;">
+            <li>📎 <strong style="color:#e2e8f0;">Content-Type:</strong> multipart/form-data</li>
+            <li>🖼 <strong style="color:#e2e8f0;">file:</strong> Ảnh JPG / PNG / WEBP (≤ 10MB)</li>
+            <li>🔑 <strong style="color:#e2e8f0;">X-API-Key:</strong> (nếu bật bảo mật)</li>
+          </ul>
+        </div>
+        <div>
+          <p style="color:#94a3b8;font-size:0.8rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">Engine Decode</p>
+          <ul style="color:#94a3b8;font-size:0.85rem;line-height:1.8;list-style:none;padding:0;">
+            <li>1️⃣ WeChat QR AI (Caffe model)</li>
+            <li>2️⃣ OpenCV QRCodeDetector</li>
+            <li>3️⃣ pyzbar (fallback)</li>
+          </ul>
+        </div>
+      </div>
+
+      <p style="color:#94a3b8;font-size:0.8rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">Response — CCCD thành công</p>
+      <pre style="background:#0f172a;border:1px solid #334155;border-radius:10px;padding:14px;font-size:0.8rem;color:#6ee7b7;overflow-x:auto;margin-bottom:14px;"><code>{
+  "success": true,
+  "cccd":      "012345678901",
+  "full_name": "NGUYEN VAN A",
+  "dob":       "01/01/1990",
+  "gender":    "Nam",
+  "address":   "Số 1, Phố X, Phường Y, Q.Z, TP.HCM",
+  "raw_data":  "012345678901|...",
+  "method":    "wechat_ai/original"
+}</code></pre>
+
+      <p style="color:#94a3b8;font-size:0.8rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">Ví dụ code</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div>
+          <p style="color:#475569;font-size:0.75rem;margin-bottom:6px;">cURL</p>
+          <pre style="background:#0f172a;border:1px solid #1e293b;border-radius:8px;padding:12px;font-size:0.75rem;color:#94a3b8;overflow-x:auto;"><code>curl -X POST http://server:8000/api/scan-qr \
+  -H "X-API-Key: AbCd1234XyZw" \
+  -F "file=@cccd.jpg"</code></pre>
+        </div>
+        <div>
+          <p style="color:#475569;font-size:0.75rem;margin-bottom:6px;">Python</p>
+          <pre style="background:#0f172a;border:1px solid #1e293b;border-radius:8px;padding:12px;font-size:0.75rem;color:#94a3b8;overflow-x:auto;"><code>import requests
+r = requests.post(
+  "http://server:8000/api/scan-qr",
+  headers={"X-API-Key": "AbCd1234XyZw"},
+  files={"file": open("cccd.jpg","rb")}
+)
+print(r.json())</code></pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- Endpoint: GET /api/generate-qr -->
+    <div style="background:#1e293b;border:1px solid rgba(6,182,212,0.25);border-radius:16px;padding:24px;margin-bottom:20px;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+        <span style="background:rgba(6,182,212,0.15);color:#67e8f9;font-size:0.75rem;font-weight:700;padding:4px 10px;border-radius:6px;font-family:monospace;">GET</span>
+        <code style="color:#f1f5f9;font-size:1rem;font-weight:600;">/api/generate-qr</code>
+        <span style="color:#94a3b8;font-size:0.85rem;">— Tạo mã QR, trả về PNG</span>
+      </div>
+
+      <p style="color:#94a3b8;font-size:0.8rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">Query Parameters</p>
+      <div style="background:#0f172a;border:1px solid #334155;border-radius:10px;overflow:hidden;margin-bottom:14px;">
+        <table style="width:100%;border-collapse:collapse;font-size:0.82rem;">
+          <thead><tr style="background:#0f172a;border-bottom:1px solid #1e293b;">
+            <th style="padding:10px 14px;text-align:left;color:#64748b;font-weight:600;">Tham số</th>
+            <th style="padding:10px 14px;text-align:left;color:#64748b;font-weight:600;">Kiểu</th>
+            <th style="padding:10px 14px;text-align:left;color:#64748b;font-weight:600;">Mặc định</th>
+            <th style="padding:10px 14px;text-align:left;color:#64748b;font-weight:600;">Mô tả</th>
+          </tr></thead>
+          <tbody>
+            <tr style="border-bottom:1px solid #1e293b;"><td style="padding:9px 14px;color:#818cf8;font-family:monospace;">data</td><td style="padding:9px 14px;color:#94a3b8;">string</td><td style="padding:9px 14px;color:#94a3b8;">—</td><td style="padding:9px 14px;color:#94a3b8;">Nội dung mã QR (bắt buộc, ≤ 2000 ký tự)</td></tr>
+            <tr style="border-bottom:1px solid #1e293b;"><td style="padding:9px 14px;color:#818cf8;font-family:monospace;">size</td><td style="padding:9px 14px;color:#94a3b8;">int</td><td style="padding:9px 14px;color:#94a3b8;">256</td><td style="padding:9px 14px;color:#94a3b8;">Kích thước ảnh px (64 – 1024)</td></tr>
+            <tr style="border-bottom:1px solid #1e293b;"><td style="padding:9px 14px;color:#818cf8;font-family:monospace;">error_correction</td><td style="padding:9px 14px;color:#94a3b8;">string</td><td style="padding:9px 14px;color:#94a3b8;">M</td><td style="padding:9px 14px;color:#94a3b8;">Mức sửa lỗi: L (7%) / M (15%) / Q (25%) / H (30%)</td></tr>
+            <tr style="border-bottom:1px solid #1e293b;"><td style="padding:9px 14px;color:#818cf8;font-family:monospace;">fg</td><td style="padding:9px 14px;color:#94a3b8;">string</td><td style="padding:9px 14px;color:#94a3b8;">#000000</td><td style="padding:9px 14px;color:#94a3b8;">Màu QR (hex, URL-encoded)</td></tr>
+            <tr><td style="padding:9px 14px;color:#818cf8;font-family:monospace;">bg</td><td style="padding:9px 14px;color:#94a3b8;">string</td><td style="padding:9px 14px;color:#94a3b8;">#ffffff</td><td style="padding:9px 14px;color:#94a3b8;">Màu nền (hex, URL-encoded)</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div>
+          <p style="color:#475569;font-size:0.75rem;margin-bottom:6px;">cURL — tải PNG</p>
+          <pre style="background:#0f172a;border:1px solid #1e293b;border-radius:8px;padding:12px;font-size:0.75rem;color:#94a3b8;overflow-x:auto;"><code>curl -o qr.png \
+  "http://server:8000/api/generate-qr\
+?data=https%3A%2F%2Fexample.com\
+&size=512&error_correction=H"</code></pre>
+        </div>
+        <div>
+          <p style="color:#475569;font-size:0.75rem;margin-bottom:6px;">JavaScript</p>
+          <pre style="background:#0f172a;border:1px solid #1e293b;border-radius:8px;padding:12px;font-size:0.75rem;color:#94a3b8;overflow-x:auto;"><code>const res = await fetch(
+  `/api/generate-qr?data=${encodeURIComponent(text)}&size=512`,
+  { headers: { "X-API-Key": key } }
+);
+const blob = await res.blob();
+// blob → <img> hoặc download</code></pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- Endpoint: GET /health -->
+    <div style="background:#1e293b;border:1px solid rgba(16,185,129,0.2);border-radius:16px;padding:20px;margin-bottom:20px;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+        <span style="background:rgba(16,185,129,0.12);color:#6ee7b7;font-size:0.75rem;font-weight:700;padding:4px 10px;border-radius:6px;font-family:monospace;">GET</span>
+        <code style="color:#f1f5f9;font-size:1rem;font-weight:600;">/health</code>
+        <span style="color:#94a3b8;font-size:0.85rem;">— Kiểm tra trạng thái server</span>
+      </div>
+      <pre style="background:#0f172a;border:1px solid #1e293b;border-radius:10px;padding:14px;font-size:0.8rem;color:#6ee7b7;overflow-x:auto;"><code>{
+  "status":  "ok",
+  "version": "2.0.0",
+  "engine": {
+    "wechat_ai": true,   // WeChat QR AI Caffe model
+    "opencv":    true,   // OpenCV QRCodeDetector
+    "pyzbar":    true    // pyzbar fallback
+  }
+}</code></pre>
+    </div>
+
+    <!-- Error codes -->
+    <div style="background:#1e293b;border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:20px;">
+      <h3 style="color:#f1f5f9;font-size:0.95rem;font-weight:700;margin-bottom:14px;">📋 Mã Lỗi HTTP</h3>
+      <div style="background:#0f172a;border-radius:10px;overflow:hidden;">
+        <table style="width:100%;border-collapse:collapse;font-size:0.83rem;">
+          <thead><tr style="border-bottom:1px solid #1e293b;">
+            <th style="padding:10px 14px;text-align:left;color:#64748b;font-weight:600;">Mã</th>
+            <th style="padding:10px 14px;text-align:left;color:#64748b;font-weight:600;">Ý nghĩa</th>
+          </tr></thead>
+          <tbody>
+            <tr style="border-bottom:1px solid #0f172a;"><td style="padding:9px 14px;color:#6ee7b7;font-weight:700;">200</td><td style="padding:9px 14px;color:#94a3b8;">Thành công</td></tr>
+            <tr style="border-bottom:1px solid #0f172a;"><td style="padding:9px 14px;color:#fca5a5;font-weight:700;">400</td><td style="padding:9px 14px;color:#94a3b8;">File quá lớn (>10MB) hoặc định dạng không hỗ trợ</td></tr>
+            <tr style="border-bottom:1px solid #0f172a;"><td style="padding:9px 14px;color:#fca5a5;font-weight:700;">401</td><td style="padding:9px 14px;color:#94a3b8;">Thiếu hoặc sai API Key (<code style="color:#818cf8;">X-API-Key</code>)</td></tr>
+            <tr style="border-bottom:1px solid #0f172a;"><td style="padding:9px 14px;color:#fca5a5;font-weight:700;">422</td><td style="padding:9px 14px;color:#94a3b8;">Không nhận diện được mã QR trong ảnh</td></tr>
+            <tr style="border-bottom:1px solid #0f172a;"><td style="padding:9px 14px;color:#fca5a5;font-weight:700;">429</td><td style="padding:9px 14px;color:#94a3b8;">Rate limit: Scan 30 req/phút, Generate 60 req/phút</td></tr>
+            <tr><td style="padding:9px 14px;color:#fca5a5;font-weight:700;">503</td><td style="padding:9px 14px;color:#94a3b8;">QR Engine chưa sẵn sàng</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /docs section -->
+
+</body>
+</html>

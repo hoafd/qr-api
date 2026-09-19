@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tạo Mã QR — QR API Server</title>
+  <meta name="description" content="Tạo mã QR tùy chỉnh với màu sắc, kích thước và mức độ sửa lỗi. Preview trực tiếp, tải PNG chất lượng cao." />
+
+  <!-- qrcode.js (client-side preview) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0f1e;
+      --surface: #111827;
+      --surface2: #1a2235;
+      --surface3: #212d42;
+      --border: rgba(255,255,255,0.08);
+      --border-hover: rgba(6,182,212,0.4);
+      --accent: #06b6d4;
+      --accent-dark: #0284c7;
+      --accent-glow: rgba(6,182,212,0.25);
+      --accent-light: #67e8f9;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --radius: 16px;
+      --radius-sm: 10px;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      width: 600px; height: 600px;
+      background: radial-gradient(circle, rgba(6,182,212,0.1), transparent 70%);
+      top: -200px; right: -200px;
+      pointer-events: none;
+    }
+
+    /* ── Topbar ── */
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 24px;
+      background: rgba(17,24,39,0.8);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .topbar-left { display: flex; align-items: center; gap: 12px; }
+    .logo-icon { font-size: 22px; }
+    .logo-text { font-weight: 700; font-size: 1rem; }
+    .back-btn {
+      display: flex; align-items: center; gap: 6px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 8px 14px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--muted);
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+    .back-btn:hover { color: var(--text); border-color: var(--border-hover); }
+
+    /* ── Layout ── */
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      min-height: calc(100vh - 57px);
+    }
+
+    /* ── Left — Controls ── */
+    .panel-left {
+      padding: 28px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+    }
+
+    .section-title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--accent-light);
+      margin-bottom: 12px;
+    }
+
+    /* Text input */
+    .input-area {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 0;
+      transition: border-color 0.2s;
+      position: relative;
+    }
+    .input-area:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+
+    #qrText {
+      width: 100%;
+      min-height: 130px;
+      resize: vertical;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text);
+      font-size: 0.95rem;
+      font-family: inherit;
+      padding: 16px;
+      line-height: 1.6;
+    }
+    #qrText::placeholder { color: var(--muted); }
+
+    .input-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 16px;
+      border-top: 1px solid var(--border);
+    }
+    .char-count { font-size: 0.78rem; color: var(--muted); }
+    .char-count .current { color: var(--text); font-weight: 600; }
+    .char-count.warn .current { color: #f59e0b; }
+    .char-count.over .current { color: #ef4444; }
+
+    /* Quick presets */
+    .presets {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .preset-btn {
+      padding: 5px 12px;
+      border-radius: 100px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+    .preset-btn:hover { border-color: var(--accent); color: var(--accent-light); background: rgba(6,182,212,0.08); }
+
+    /* Options grid */
+    .options-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .option-group { display: flex; flex-direction: column; gap: 8px; }
+    .option-label {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--muted);
+    }
+
+    /* Select */
+    select {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-size: 0.875rem;
+      font-family: inherit;
+      padding: 10px 12px;
+      width: 100%;
+      outline: none;
+      cursor: pointer;
+      transition: border-color 0.2s;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%2394a3b8' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      background-size: 18px;
+      padding-right: 36px;
+    }
+    select:focus { border-color: var(--accent); }
+
+    /* Color pickers */
+    .color-row {
+      display: flex;
+      gap: 16px;
+    }
+    .color-group { display: flex; flex-direction: column; gap: 8px; flex: 1; }
+    .color-input-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 8px 12px;
+      transition: border-color 0.2s;
+    }
+    .color-input-wrapper:focus-within { border-color: var(--accent); }
+    input[type="color"] {
+      width: 28px; height: 28px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      background: none;
+      padding: 0;
+      flex-shrink: 0;
+    }
+    .color-hex {
+      font-size: 0.82rem;
+      font-family: monospace;
+      color: var(--text);
+      background: transparent;
+      border: none;
+      outline: none;
+      width: 80px;
+    }
+
+    /* Generate button */
+    .btn-generate {
+      width: 100%;
+      padding: 14px;
+      border-radius: var(--radius);
+      border: none;
+      background: linear-gradient(135deg, #06b6d4, #0284c7);
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+      box-shadow: 0 4px 16px var(--accent-glow);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .btn-generate:hover { opacity: 0.9; transform: translateY(-2px); box-shadow: 0 8px 24px var(--accent-glow); }
+    .btn-generate:active { transform: translateY(0); }
+
+    /* ── Right — Preview ── */
+    .panel-right {
+      padding: 28px 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 24px;
+      overflow-y: auto;
+    }
+
+    .preview-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      width: 100%;
+    }
+
+    /* QR canvas container */
+    .qr-canvas-wrapper {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      max-width: 360px;
+      aspect-ratio: 1;
+      position: relative;
+      transition: border-color 0.3s;
+    }
+    .qr-canvas-wrapper.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 8px 32px var(--accent-glow); }
+
+    #qrPreview { max-width: 100%; max-height: 100%; border-radius: 4px; }
+
+    /* Placeholder inside canvas wrapper */
+    .qr-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      color: var(--muted);
+      text-align: center;
+    }
+    .qr-placeholder-icon { font-size: 48px; opacity: 0.25; }
+    .qr-placeholder p { font-size: 0.85rem; line-height: 1.6; }
+
+    /* QR info badges */
+    .qr-info {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .info-badge {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      padding: 4px 12px;
+      font-size: 0.76rem;
+      color: var(--muted);
+    }
+    .info-badge strong { color: var(--accent-light); }
+
+    /* Action buttons */
+    .action-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      width: 100%;
+      max-width: 360px;
+    }
+
+    .btn-action {
+      padding: 12px 16px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text);
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .btn-action:hover { border-color: var(--accent); color: var(--accent-light); background: rgba(6,182,212,0.06); }
+    .btn-action.primary { background: linear-gradient(135deg, #06b6d4, #0284c7); border-color: transparent; color: #fff; }
+    .btn-action.primary:hover { opacity: 0.9; }
+    .btn-action:disabled { opacity: 0.3; cursor: not-allowed; }
+
+    /* Live indicator */
+    .live-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75rem;
+      color: var(--accent-light);
+      background: rgba(6,182,212,0.1);
+      border: 1px solid rgba(6,182,212,0.25);
+      border-radius: 100px;
+      padding: 4px 12px;
+    }
+    .live-dot {
+      width: 6px; height: 6px;
+      background: var(--accent);
+      border-radius: 50%;
+      animation: pulse-dot 1.5s ease-in-out infinite;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.7); }
+    }
+
+    /* Error level description */
+    .ec-desc {
+      font-size: 0.78rem;
+      color: var(--muted);
+      line-height: 1.5;
+      padding: 8px 12px;
+      background: var(--surface2);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      padding: 10px 20px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+      transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+      z-index: 9999;
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+    .toast.success { border-color: rgba(6,182,212,0.4); color: #67e8f9; }
+    .toast.error   { border-color: rgba(239,68,68,0.4); color: #fca5a5; }
+
+    /* ── Responsive ── */
+    @media (max-width: 768px) {
+      .layout { grid-template-columns: 1fr; }
+      .panel-left { border-right: none; border-bottom: 1px solid var(--border); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Topbar -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <span class="logo-icon">✨</span>
+      <span class="logo-text">Tạo Mã QR</span>
+    </div>
+    <a href="/" class="back-btn">← Trang chủ</a>
+  </header>
+
+  <div class="layout">
+
+    <!-- ═══════════════ LEFT PANEL — Controls ═══════════════ -->
+    <div class="panel-left">
+
+      <!-- Text Input -->
+      <div>
+        <div class="section-title">📝 Nội dung mã QR</div>
+        <div class="input-area">
+          <textarea id="qrText" placeholder="Nhập URL, văn bản, số điện thoại, email...&#10;Ví dụ: https://example.com" oninput="onTextChange(this)"></textarea>
+          <div class="input-footer">
+            <span class="char-count" id="charCount"><span class="current">0</span> ký tự</span>
+            <button class="preset-btn" onclick="clearText()">✕ Xóa</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Presets -->
+      <div>
+        <div class="section-title">⚡ Mẫu nhanh</div>
+        <div class="presets">
+          <button class="preset-btn" onclick="setPreset('url')">🔗 URL</button>
+          <button class="preset-btn" onclick="setPreset('phone')">📞 SĐT</button>
+          <button class="preset-btn" onclick="setPreset('email')">📧 Email</button>
+          <button class="preset-btn" onclick="setPreset('wifi')">📶 WiFi</button>
+          <button class="preset-btn" onclick="setPreset('vcard')">👤 vCard</button>
+          <button class="preset-btn" onclick="setPreset('sms')">💬 SMS</button>
+        </div>
+      </div>
+
+      <!-- Options -->
+      <div>
+        <div class="section-title">⚙️ Tùy chỉnh</div>
+        <div class="options-grid">
+
+          <div class="option-group">
+            <div class="option-label">Kích thước (px)</div>
+            <select id="sizeSelect" onchange="scheduleUpdate()">
+              <option value="128">128 × 128</option>
+              <option value="256" selected>256 × 256</option>
+              <option value="512">512 × 512</option>
+              <option value="1024">1024 × 1024</option>
+            </select>
+          </div>
+
+          <div class="option-group">
+            <div class="option-label">Mức sửa lỗi</div>
+            <select id="ecSelect" onchange="onEcChange()">
+              <option value="L">L — 7% (nhỏ nhất)</option>
+              <option value="M" selected>M — 15% (cân bằng)</option>
+              <option value="Q">Q — 25% (cao)</option>
+              <option value="H">H — 30% (tối đa)</option>
+            </select>
+          </div>
+
+        </div>
+
+        <!-- Error correction description -->
+        <div class="ec-desc" id="ecDesc" style="margin-top:12px;">
+          <strong>M (15%)</strong> — Cân bằng giữa dung lượng và độ bền. Phù hợp cho hầu hết các trường hợp.
+        </div>
+      </div>
+
+      <!-- Colors -->
+      <div>
+        <div class="section-title">🎨 Màu sắc</div>
+        <div class="color-row">
+          <div class="color-group">
+            <div class="option-label">Màu QR</div>
+            <div class="color-input-wrapper">
+              <input type="color" id="fgColor" value="#000000" oninput="onColorInput('fg')" />
+              <input class="color-hex" id="fgHex" type="text" value="#000000" maxlength="7" oninput="onHexInput('fg')" spellcheck="false" />
+            </div>
+          </div>
+          <div class="color-group">
+            <div class="option-label">Màu nền</div>
+            <div class="color-input-wrapper">
+              <input type="color" id="bgColor" value="#ffffff" oninput="onColorInput('bg')" />
+              <input class="color-hex" id="bgHex" type="text" value="#ffffff" maxlength="7" oninput="onHexInput('bg')" spellcheck="false" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Color presets -->
+        <div class="presets" style="margin-top:10px;">
+          <button class="preset-btn" onclick="setColors('#000000','#ffffff')">⬛ Classic</button>
+          <button class="preset-btn" onclick="setColors('#1e40af','#eff6ff')">🔵 Blue</button>
+          <button class="preset-btn" onclick="setColors('#7c3aed','#f5f3ff')">🟣 Purple</button>
+          <button class="preset-btn" onclick="setColors('#065f46','#ecfdf5')">🟢 Green</button>
+          <button class="preset-btn" onclick="setColors('#9a1212','#fff5f5')">🔴 Red</button>
+          <button class="preset-btn" onclick="setColors('#ffffff','#1e293b')">⬜ Dark</button>
+        </div>
+      </div>
+
+      <!-- Generate button -->
+      <button class="btn-generate" onclick="generateFromServer()">
+        ✨ Tạo mã QR chất lượng cao
+      </button>
+
+    </div><!-- /panel-left -->
+
+    <!-- ═══════════════ RIGHT PANEL — Preview ═══════════════ -->
+    <div class="panel-right">
+
+      <div style="display:flex; flex-direction:column; align-items:center; gap:8px; width:100%;">
+        <div class="live-badge">
+          <span class="live-dot"></span>
+          Preview trực tiếp
+        </div>
+      </div>
+
+      <!-- QR Preview -->
+      <div class="qr-canvas-wrapper" id="qrWrapper">
+        <div class="qr-placeholder" id="qrPlaceholder">
+          <div class="qr-placeholder-icon">◻</div>
+          <p>Nhập nội dung bên trái<br />để xem preview mã QR</p>
+        </div>
+        <div id="qrPreviewBox" style="display:none; max-width:100%; max-height:100%;"></div>
+      </div>
+
+      <!-- QR Info -->
+      <div class="qr-info" id="qrInfo" style="display:none;">
+        <span class="info-badge">Kích thước: <strong id="infoSize">256px</strong></span>
+        <span class="info-badge">Sửa lỗi: <strong id="infoEc">M</strong></span>
+        <span class="info-badge">Ký tự: <strong id="infoChars">0</strong></span>
+      </div>
+
+      <!-- Action buttons -->
+      <div class="action-row" id="actionRow">
+        <button class="btn-action primary" id="btnDownload" onclick="downloadQR()" disabled>⬇ Tải PNG</button>
+        <button class="btn-action" id="btnCopy" onclick="copyQR()" disabled>📋 Copy ảnh</button>
+        <button class="btn-action" id="btnShare" onclick="shareQR()" disabled>🔗 Chia sẻ</button>
+        <button class="btn-action" id="btnClear" onclick="clearAll()">🗑 Xóa</button>
+      </div>
+
+    </div><!-- /panel-right -->
+
+  </div><!-- /layout -->
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // ─────────────────────────────────────────────────────
+    // API Key (đọc từ meta tag được server inject)
+    // ─────────────────────────────────────────────────────
+    const _API_KEY = document.querySelector('meta[name="x-api-key"]')?.content || '';
+    function _apiHeaders() {
+      return _API_KEY ? { 'X-API-Key': _API_KEY } : {};
+    }
+
+    // ─────────────────────────────────────────────────────
+    // State
+    // ─────────────────────────────────────────────────────
+    let qrInstance = null;
+    let debounceTimer = null;
+    let currentQRDataUrl = null;
+
+    const EC_INFO = {
+      L: { label: 'L (7%)', desc: '<strong>L (7%)</strong> — Khả năng phục hồi thấp nhất. Dùng khi QR sẽ được in rõ ràng, ít hỏng hóc.' },
+      M: { label: 'M (15%)', desc: '<strong>M (15%)</strong> — Cân bằng giữa dung lượng và độ bền. Phù hợp cho hầu hết các trường hợp.' },
+      Q: { label: 'Q (25%)', desc: '<strong>Q (25%)</strong> — Độ bền cao. Dùng khi QR có thể bị bẩn hoặc mờ một phần.' },
+      H: { label: 'H (30%)', desc: '<strong>H (30%)</strong> — Tối đa. Phù hợp khi nhúng logo vào giữa QR (logo che ~30% mà vẫn đọc được).' },
+    };
+
+    const PRESETS = {
+      url:   'https://example.com',
+      phone: 'tel:+84901234567',
+      email: 'mailto:contact@example.com?subject=Xin chào',
+      wifi:  'WIFI:T:WPA;S:TenMang;P:MatKhau;;',
+      vcard: 'BEGIN:VCARD\nVERSION:3.0\nFN:Nguyễn Văn A\nTEL:+84901234567\nEMAIL:vana@example.com\nEND:VCARD',
+      sms:   'SMS:+84901234567:Xin chào bạn!',
+    };
+
+    // ─────────────────────────────────────────────────────
+    // Text input
+    // ─────────────────────────────────────────────────────
+    function onTextChange(el) {
+      const len = el.value.length;
+      const cc = document.getElementById('charCount');
+      cc.querySelector('.current').textContent = len;
+      cc.className = 'char-count' + (len > 2000 ? ' over' : len > 1000 ? ' warn' : '');
+      scheduleUpdate();
+    }
+
+    function scheduleUpdate() {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(updatePreview, 300);
+    }
+
+    function clearText() {
+      document.getElementById('qrText').value = '';
+      onTextChange(document.getElementById('qrText'));
+    }
+
+    function setPreset(type) {
+      document.getElementById('qrText').value = PRESETS[type] || '';
+      onTextChange(document.getElementById('qrText'));
+    }
+
+    function clearAll() {
+      clearText();
+      hidePlaceholder(false);
+    }
+
+    // ─────────────────────────────────────────────────────
+    // Options
+    // ─────────────────────────────────────────────────────
+    function onEcChange() {
+      const ec = document.getElementById('ecSelect').value;
+      document.getElementById('ecDesc').innerHTML = EC_INFO[ec]?.desc || '';
+      scheduleUpdate();
+    }
+
+    function onColorInput(which) {
+      const val = document.getElementById(which + 'Color').value;
+      document.getElementById(which + 'Hex').value = val;
+      scheduleUpdate();
+    }
+
+    function onHexInput(which) {
+      const hex = document.getElementById(which + 'Hex').value;
+      if (/^#[0-9a-fA-F]{6}$/.test(hex)) {
+        document.getElementById(which + 'Color').value = hex;
+        scheduleUpdate();
+      }
+    }
+
+    function setColors(fg, bg) {
+      document.getElementById('fgColor').value = fg;
+      document.getElementById('bgColor').value = bg;
+      document.getElementById('fgHex').value = fg;
+      document.getElementById('bgHex').value = bg;
+      scheduleUpdate();
+    }
+
+    // ─────────────────────────────────────────────────────
+    // QR Preview (client-side, instant)
+    // ─────────────────────────────────────────────────────
+    function updatePreview() {
+      const text = document.getElementById('qrText').value.trim();
+      if (!text) { hidePlaceholder(false); return; }
+
+      const size = parseInt(document.getElementById('sizeSelect').value);
+      const ec   = document.getElementById('ecSelect').value;
+      const fg   = document.getElementById('fgColor').value;
+      const bg   = document.getElementById('bgColor').value;
+
+      const previewSize = Math.min(size, 300); // Cap preview at 300px for speed
+
+      const box = document.getElementById('qrPreviewBox');
+      box.innerHTML = '';
+
+      try {
+        qrInstance = new QRCode(box, {
+          text: text,
+          width: previewSize,
+          height: previewSize,
+          colorDark: fg,
+          colorLight: bg,
+          correctLevel: QRCode.CorrectLevel[ec] ?? QRCode.CorrectLevel.M,
+        });
+
+        hidePlaceholder(true);
+
+        // Capture dataURL for download
+        setTimeout(() => {
+          const canvas = box.querySelector('canvas');
+          if (canvas) {
+            currentQRDataUrl = canvas.toDataURL('image/png');
+            setActionButtons(true);
+          }
+          const img = box.querySelector('img');
+          if (img) {
+            currentQRDataUrl = img.src;
+            setActionButtons(true);
+          }
+        }, 100);
+
+        // Update info badges
+        document.getElementById('infoSize').textContent = size + 'px';
+        document.getElementById('infoEc').textContent = ec;
+        document.getElementById('infoChars').textContent = text.length;
+        document.getElementById('qrInfo').style.display = 'flex';
+
+      } catch (err) {
+        console.error('QR generate error:', err);
+        showToast('Không thể tạo QR — nội dung quá dài hoặc không hợp lệ', 'error');
+        hidePlaceholder(false);
+      }
+    }
+
+    function hidePlaceholder(hasQR) {
+      document.getElementById('qrPlaceholder').style.display = hasQR ? 'none' : 'flex';
+      document.getElementById('qrPreviewBox').style.display = hasQR ? 'block' : 'none';
+      document.getElementById('qrWrapper').classList.toggle('active', hasQR);
+      document.getElementById('qrInfo').style.display = hasQR ? 'flex' : 'none';
+      if (!hasQR) {
+        setActionButtons(false);
+        currentQRDataUrl = null;
+      }
+    }
+
+    function setActionButtons(on) {
+      ['btnDownload', 'btnCopy', 'btnShare'].forEach(id => {
+        document.getElementById(id).disabled = !on;
+      });
+    }
+
+    // ─────────────────────────────────────────────────────
+    // Download (server-side high-quality PNG)
+    // ─────────────────────────────────────────────────────
+    async function generateFromServer() {
+      const text = document.getElementById('qrText').value.trim();
+      if (!text) { showToast('Vui lòng nhập nội dung trước!', 'error'); return; }
+
+      const size = document.getElementById('sizeSelect').value;
+      const ec   = document.getElementById('ecSelect').value;
+      const fg   = encodeURIComponent(document.getElementById('fgColor').value);
+      const bg   = encodeURIComponent(document.getElementById('bgColor').value);
+      const data = encodeURIComponent(text);
+
+      const url = `/api/generate-qr?data=${data}&size=${size}&error_correction=${ec}&fg=${fg}&bg=${bg}`;
+
+      showToast('Đang tạo mã QR chất lượng cao...', 'success');
+
+      // Dùng fetch để gửi API Key header (nếu cần), rồi tạo blob download
+      try {
+        const resp = await fetch(url, { headers: _apiHeaders() });
+        if (!resp.ok) { showToast('Lỗi tạo QR từ server', 'error'); return; }
+        const blob = await resp.blob();
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `qrcode_${size}px.png`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+        showToast('Đã tải xuống QR chất lượng cao!', 'success');
+      } catch (e) {
+        showToast('Lỗi kết nối server: ' + e.message, 'error');
+      }
+    }
+
+    async function downloadQR() {
+      if (!currentQRDataUrl) return;
+      const a = document.createElement('a');
+      a.href = currentQRDataUrl;
+      a.download = 'qrcode_preview.png';
+      a.click();
+      showToast('Đã tải xuống QR!', 'success');
+    }
+
+    async function copyQR() {
+      if (!currentQRDataUrl) return;
+      try {
+        const res = await fetch(currentQRDataUrl);
+        const blob = await res.blob();
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+        showToast('Đã copy ảnh QR vào clipboard!', 'success');
+      } catch {
+        // Fallback: copy URL
+        navigator.clipboard.writeText(currentQRDataUrl).then(() => showToast('Đã copy data URL!', 'success'));
+      }
+    }
+
+    async function shareQR() {
+      const text = document.getElementById('qrText').value.trim();
+      if (!text) return;
+      if (navigator.share) {
+        await navigator.share({ title: 'Mã QR', text: text });
+      } else {
+        navigator.clipboard.writeText(text).then(() => showToast('Đã copy nội dung QR!', 'success'));
+      }
+    }
+
+    // ─────────────────────────────────────────────────────
+    // Toast
+    // ─────────────────────────────────────────────────────
+    let toastTimer = null;
+    function showToast(msg, type = 'success') {
+      const t = document.getElementById('toast');
+      t.textContent = (type === 'success' ? '✓ ' : '✗ ') + msg;
+      t.className = `toast ${type} show`;
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+    }
+
+    // ─────────────────────────────────────────────────────
+    // Init
+    // ─────────────────────────────────────────────────────
+    onEcChange(); // Set initial description
+  </script>
+</body>
+</html>

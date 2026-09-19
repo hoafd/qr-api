@@ -1,0 +1,35 @@
+# Môi trường ảo Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+*.spec
+
+# WeChat AI Models (file nhị phân lớn — tải về qua setup.ps1)
+models/
+
+# Config cục bộ (chứa API key — KHÔNG commit)
+config.json
+
+# PyInstaller output
+dist/
+build/
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Log
+*.log
