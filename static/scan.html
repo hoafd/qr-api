@@ -953,19 +953,8 @@
 
     function copyAllData() {
       if (!lastResult || !lastResult.success) return;
-      let text = '';
-      if (lastResult.cccd) {
-        text = [
-          `Số CCCD: ${lastResult.cccd}`,
-          `Họ tên: ${lastResult.full_name}`,
-          `Ngày sinh: ${lastResult.dob}`,
-          `Giới tính: ${lastResult.gender}`,
-          `Địa chỉ: ${lastResult.address}`,
-        ].join('\n');
-      } else {
-        text = lastResult.raw_data || '';
-      }
-      navigator.clipboard.writeText(text).then(() => showToast('Đã sao chép tất cả dữ liệu!', 'success'));
+      let text = lastResult.raw_data || '';
+      navigator.clipboard.writeText(text).then(() => showToast('Đã sao chép dữ liệu thô!', 'success'));
     }
 
     function resetAll() {
